@@ -125,22 +125,32 @@ public sealed partial class Plugin : IViewer, IMoreMenu
         return !Directory.Exists(path) && WellKnownExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
     }
 
-    public void Prepare(string path, ContextObject context)
+public void Prepare(string path, ContextObject context)
+{
+    var size = _imageFileHelper.GetSize(path);
+
+    if (size.IsEmpty)
     {
-        if (WebHandler.TryPrepare(path, context, out _metaWeb))
-            return;
-
-        _meta = new MetaProvider(path);
-
-        var size = _meta.GetSize();
-
-        if (!size.IsEmpty)
-            context.SetPreferredSizeFit(size, 0.8d);
-        else
-            context.PreferredSize = new Size(800, 600);
-
-        context.Theme = (Themes)SettingHelper.Get("LastTheme", 1, "QuickLook.Plugin.ImageViewer");
+        context.PreferredSize = new Size(800, 600);
     }
+    else
+    {
+        // 获取系统 DPI 缩放比例（200% → 2.0）
+        var dpiScale = DisplayDeviceHelper.GetCurrentScaleFactor().Horizontal;
+
+        // 图片的物理像素 → WPF 逻辑像素
+        var logicalSize = new Size(
+            size.Width / dpiScale,
+            size.Height / dpiScale
+        );
+
+        // 按逻辑尺寸适配窗口，系数 0.8
+        context.SetPreferredSizeFit(logicalSize, 0.8);
+    }
+
+    context.Title = $"{Path.GetFileName(path)}";
+    context.Theme = (Themes) SettingHelper.Get("LastTheme", (int) Themes.Dark, "QuickLook.Plugin.ImageViewer");
+}
 
     public void View(string path, ContextObject context)
     {
