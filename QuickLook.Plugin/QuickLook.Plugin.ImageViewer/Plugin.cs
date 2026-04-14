@@ -1,4 +1,4 @@
-﻿// Copyright © 2017-2026 QL-Win Contributors
+// Copyright © 2017-2026 QL-Win Contributors
 //
 // This file is part of QuickLook program.
 //
@@ -125,32 +125,22 @@ public sealed partial class Plugin : IViewer, IMoreMenu
         return !Directory.Exists(path) && WellKnownExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
     }
 
-public void Prepare(string path, ContextObject context)
-{
-    var size = _imageFileHelper.GetSize(path);
-
-    if (size.IsEmpty)
+    public void Prepare(string path, ContextObject context)
     {
-        context.PreferredSize = new Size(800, 600);
+        if (WebHandler.TryPrepare(path, context, out _metaWeb))
+            return;
+
+        _meta = new MetaProvider(path);
+
+        var size = GetDisplaySize(_meta);
+
+        if (!size.IsEmpty)
+            context.SetPreferredSizeFit(size, 0.8d);
+        else
+            context.PreferredSize = new Size(800, 600);
+
+        context.Theme = (Themes)SettingHelper.Get("LastTheme", 1, "QuickLook.Plugin.ImageViewer");
     }
-    else
-    {
-        // 获取系统 DPI 缩放比例（200% → 2.0）
-        var dpiScale = DisplayDeviceHelper.GetCurrentScaleFactor().Horizontal;
-
-        // 图片的物理像素 → WPF 逻辑像素
-        var logicalSize = new Size(
-            size.Width / dpiScale,
-            size.Height / dpiScale
-        );
-
-        // 按逻辑尺寸适配窗口，系数 0.8
-        context.SetPreferredSizeFit(logicalSize, 0.8);
-    }
-
-    context.Title = $"{Path.GetFileName(path)}";
-    context.Theme = (Themes) SettingHelper.Get("LastTheme", (int) Themes.Dark, "QuickLook.Plugin.ImageViewer");
-}
 
     public void View(string path, ContextObject context)
     {
@@ -160,7 +150,7 @@ public void Prepare(string path, ContextObject context)
             return;
 
         _ip = new ImagePanel(context, _meta);
-        var size = _meta.GetSize();
+        var size = GetDisplaySize(_meta);
 
         context.ViewerContent = _ip;
         context.Title = size.IsEmpty
@@ -174,6 +164,21 @@ public void Prepare(string path, ContextObject context)
         {
             _ip.Cursor = CursorProvider.GetCursor(path) ?? Cursors.Arrow;
         }
+    }
+
+    private static Size GetDisplaySize(MetaProvider meta)
+    {
+        var size = meta.GetSize();
+        if (size.IsEmpty)
+            return size;
+
+        var orientation = meta.GetOrientation();
+        var shouldSwap = orientation is Orientation.LeftTop
+            or Orientation.RightTop
+            or Orientation.RightBottom
+            or Orientation.LeftBottom;
+
+        return shouldSwap ? new Size(size.Height, size.Width) : size;
     }
 
     public void Cleanup()
