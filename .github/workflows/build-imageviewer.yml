@@ -3,8 +3,6 @@ name: Build ImageViewer DLL
 on:
   push:
     branches: [ master ]
-    paths:
-      - 'QuickLook.Plugin/QuickLook.Plugin.ImageViewer/**'
   workflow_dispatch:
 
 jobs:
@@ -15,28 +13,35 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+        fetch-depth: 0
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+
     - name: Restore NuGet packages
       run: nuget restore QuickLook.sln
-      
+
+    - name: Generate version file
+      run: |
+        $version = "4.5.0.0"
+        $content = "using System.Reflection;`n[assembly: AssemblyVersion(`"$version`")]`n[assembly: AssemblyFileVersion(`"$version`")]"
+        Set-Content -Path "QuickLook.Common/GitVersion.cs" -Value $content
+      shell: pwsh
+
     - name: Build ImageViewer plugin
       run: |
         msbuild QuickLook.Plugin/QuickLook.Plugin.ImageViewer/QuickLook.Plugin.ImageViewer.csproj `
           /p:Configuration=Release `
-          /p:Platform="Any CPU"
+          /p:Platform="Any CPU" `
+          /p:RunPreBuildEvent=false
+      shell: pwsh
 
     - name: Upload DLL artifact
       uses: actions/upload-artifact@v4
       with:
         name: QuickLook.Plugin.ImageViewer
-        path: |
-          QuickLook.Plugin/QuickLook.Plugin.ImageViewer/bin/Release/**/QuickLook.Plugin.ImageViewer.dll
+        path: QuickLook.Plugin/QuickLook.Plugin.ImageViewer/bin/Release/**/QuickLook.Plugin.ImageViewer.dll
         retention-days: 7
