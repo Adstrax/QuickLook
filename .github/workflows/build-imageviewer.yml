@@ -21,9 +21,6 @@ jobs:
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v2
 
-    - name: Restore NuGet packages
-      run: nuget restore QuickLook.sln
-
     - name: Generate version file
       run: |
         $version = "4.5.0.0"
@@ -34,6 +31,7 @@ jobs:
     - name: Build ImageViewer plugin
       run: |
         msbuild QuickLook.Plugin/QuickLook.Plugin.ImageViewer/QuickLook.Plugin.ImageViewer.csproj `
+          /restore `
           /p:Configuration=Release `
           /p:Platform="Any CPU" `
           /p:RunPreBuildEvent=false
